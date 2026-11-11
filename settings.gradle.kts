@@ -45,9 +45,11 @@ includeBuild("libraries/libinfiniselect")
 if (System.getenv("ANDROID_HOME").isNullOrBlank() &&
     System.getenv("ANDROID_SDK_ROOT").isNullOrBlank() &&
     System.getProperty("android.home").isNullOrBlank()) {
-    val propertiesFile = file("local.properties")
-    val sdkPath = if (propertiesFile.isFile) java.util.Properties().apply {
-        propertiesFile.inputStream().use { load(it) }
-    }.getProperty("sdk.dir") else null
+    val propertiesFile = listOf(file("local.properties"), file("../local.properties"))
+        .firstOrNull { it.isFile }
+    val sdkPath = propertiesFile?.let { properties ->
+        java.util.Properties().apply { properties.inputStream().use { load(it) } }
+            .getProperty("sdk.dir")
+    }
     if (!sdkPath.isNullOrBlank()) System.setProperty("android.home", file(sdkPath).absolutePath)
 }
