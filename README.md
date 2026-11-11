@@ -37,8 +37,8 @@ checksum are pinned in the wrapper. The complete source-dependency closure is
 pinned in `dependencies.lock.json`; the bootstrap fetches only those libraries
 inside `libraries/`. No parent or sibling checkout is consulted.
 
-On Termux, install JDK, Python, clang and aapt2. Configure the supported Gradle
-`android.aapt2FromMavenOverride` property with the installed executable's path.
+On Termux, install JDK, Python, clang and aapt2. The build script configures native aapt2 automatically; direct Gradle calls need
+`android.aapt2FromMavenOverride` set to the installed executable.
 The MOBI JNI bridge uses the Termux toolchain there and the pinned NDK elsewhere.
 
 Shared UI/theme/icon code has one source owner in libinfiniui. The document library
@@ -51,3 +51,9 @@ Unit tests and compilation do not establish Android grant, rendering or lifecycl
 correctness on a device. See Infinifolder's architecture audit for executed checks
 and the remaining runtime validation matrix. Original-code licensing is pending;
 see LICENSE.md. Preserve bundled third-party notices when distributing the APK.
+
+## Build environment discovery
+
+`./build.sh` honors `ANDROID_HOME`, `ANDROID_SDK_ROOT` or this checkout's `local.properties`. With none configured, it discovers an installed SDK in `~/android-sdk`, `~/Android/Sdk` or `~/Library/Android/sdk`, and reports a clear error if absent. It does not install an SDK or write local configuration. On Termux it passes the installed native `aapt2` explicitly and defaults arm64 packaging to `arm64-v8a`; explicit Gradle arguments can override that default. Direct `./gradlew` invocation still requires SDK/tool configuration.
+
+Run `python3 scripts/test-android-build-env.py` for the build entry point's isolated regression checks.
