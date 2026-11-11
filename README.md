@@ -60,3 +60,7 @@ Run `python3 scripts/test-android-build-env.py` for the build entry point's isol
 ## Android verification checkpoint
 
 On 2026-11-11, implementation commit `9f0ee73` produced its debug APK and passed 17 unit tests in the user's independent Termux checkout. `./build.sh --max-workers=1 --console=plain` ran with SDK environment variables unset and no local.properties, plus a guard rejecting project/source roots outside that checkout. The 11 build-environment regression checks also passed. APK inspection confirmed no media-player application or advanced Folder storage implementation. Device rendering/grants/lifecycle validation remains separate; Ubuntu testing and other platform ports are deferred.
+
+## Shared image rendering update
+
+The pinned Canvas decoder supports Infini SVG palette-cycling metadata directly, alongside existing indexed IFF animation. Its scheduler is now shared by UI image presentation and skin artwork; Scribe still does not include the Media application or its theme assets.
