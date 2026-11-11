@@ -1,44 +1,47 @@
 # InfiniScribe
 
-InfiniScribe is a standalone Android document viewer built from the shared
-`libinfiniscribe` libraries and the Scribe-backed viewer modules in this
-workspace. It does not include or depend on the InfiniFolder application.
+Independent Android document viewer/editor and ebook reader. Application ID:
+`com.infiniscribe`; Android 8.0 (API 26) or newer. Supports text and syntax-aware
+editing, Markdown/HTML, CSV/workbooks, PDF, EPUB and other supported document legacy MindNode Touch mind maps, and
+font formats through the optional backends in libinfiniscribe. The shared image
+viewer is supplied by libinfiniui; document UI lives in this application's modules.
 
-The host accepts one document per launch through a `content://` or `file://`
-URI. For `content://` sources, the sending app must grant URI read access. The
-viewer is selected at runtime from the installed viewer and Scribe/Canvas
-capability providers. The linked image viewer handles Canvas formats, including
-formats with supported embedded previews. General PostScript interpretation is
-not implemented; PostScript without a supported raster preview opens as source
-text when the content is readable. Multiple-item intents are deliberately not
-treated as document queues; queueing belongs to media playback.
+External files are selected through libinfiniselect and opened as Android content
+references. Infinifolder supplies advanced remote/container storage when installed.
+Android SAF remains functional without it. No remote clients, torrent engine,
+mounted filesystems, libinfinistore or libinfinivault are bundled in this app.
+Standard ZIP expansion needed by document formats belongs to document processing.
 
-## Build
+## Fresh checkout build
 
-Fetch the pinned library and theme repositories, then build:
+Install JDK 17 or 21, Python 3, Android SDK platform 36, build tools 35.0.0,
+NDK 27.2.12479018 and CMake 3.22.1. Set `ANDROID_HOME`, or set `sdk.dir` in
+this checkout's untracked `local.properties`.
 
 ```sh
-./get-dependencies.sh
-./gradlew assembleDebug
+git clone https://github.com/gretchycat/infiniscribe.git
+cd infiniscribe
+python3 scripts/fetch-dependencies.py
+./gradlew assembleDebug testDebugUnitTest
 ```
 
-The Android SDK must be configured in the environment or in `local.properties`. The Android viewer modules, theme assets, and build scripts are included in this
-repository. Library dependencies and the icon theme are pinned as Git submodules. Clone with
-`--recurse-submodules` or run `./get-dependencies.sh` before building. No
-InfiniFolder checkout is required. The debug APK is written to `build/outputs/apk/debug/`.
+The APK is `build/outputs/apk/debug/InfiniScribe-debug.apk`. Add
+`-PtargetAbi=arm64-v8a` to restrict application packaging. Gradle 9.7.1 and its
+checksum are pinned in the wrapper. The complete source-dependency closure is
+pinned in `dependencies.lock.json`; the bootstrap fetches only those libraries
+inside `libraries/`. No parent or sibling checkout is consulted.
 
-Supported viewer formats are discovered from the registered Scribe, Canvas,
-and viewer-component handlers;
-formats and limitations come from those libraries rather than a second list in
-this host app. The build exports that same runtime capability catalog into
-Android `VIEW`, `EDIT`, and single-item `SEND` intent filters, including each
-handler's MIME types and extensions. Registering another format handler under
-an existing Scribe viewer presentation updates those filters on the next build.
-Unknown extensions are eligible in the InfiniFolder-backed picker through the
-opaque MIME candidate. Before opening, InfiniScribe checks a bounded content
-prefix for readable text and rejects binary-looking input, so plain text does not
-need a registered extension while video and image types remain filtered by MIME.
+On Termux, install JDK, Python, clang and aapt2. Configure the supported Gradle
+`android.aapt2FromMavenOverride` property with the installed executable's path.
+The MOBI JNI bridge uses the Termux toolchain there and the pinned NDK elsewhere.
 
-When InfiniScribe opens its file selector, returning from a document reopens
-the selector at the same directory and scroll position. Back closes the
-floating selector; Back from a document returns to the selector.
+Shared UI/theme/icon code has one source owner in libinfiniui. The document library
+contains processing backends; libinfinisound supplies the existing soundbank text
+inspection used by the text viewer. It does not add the media-player application
+or Android playback module. Every dependency's responsibility and public interface
+are documented in its own repository.
+
+Unit tests and compilation do not establish Android grant, rendering or lifecycle
+correctness on a device. See Infinifolder's architecture audit for executed checks
+and the remaining runtime validation matrix. Original-code licensing is pending;
+see LICENSE.md. Preserve bundled third-party notices when distributing the APK.

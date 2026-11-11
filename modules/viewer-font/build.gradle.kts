@@ -10,6 +10,6 @@ android {
     kotlinOptions { jvmTarget = "17" }
 }
 dependencies {
-    implementation(project(":viewer-common"))
+    implementation("io.github.gretchycat.libinfiniui:ui-android:0.1.0")
     implementation("io.github.gretchycat.libinfiniscribe:scribe-android:0.1.0")
 }

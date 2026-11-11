@@ -12,7 +12,7 @@ android {
 }
 dependencies {
     api("androidx.core:core:1.15.0")
-    api(project(":viewer-common"))
+    api("io.github.gretchycat.libinfiniui:ui-android:0.1.0")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")
 }

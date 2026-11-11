@@ -12,7 +12,7 @@ android {
 }
 dependencies {
     api("androidx.core:core:1.15.0")
-    api(project(":viewer-common"))
+    api("io.github.gretchycat.libinfiniui:ui-android:0.1.0")
     implementation("io.github.gretchycat.libinfinisound:audio-core:0.2.0")
     implementation("io.github.gretchycat.libinfiniscribe:scribe-reparse-json-android:0.1.0")
     implementation("io.github.gretchycat.libinfiniscribe:scribe-reparse-yaml:0.1.0")

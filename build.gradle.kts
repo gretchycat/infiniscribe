@@ -1,7 +1,11 @@
 plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
+    id("com.android.application") version "8.9.2"
+    id("com.android.library") version "8.9.2" apply false
+    id("org.jetbrains.kotlin.android") version "2.2.20"
+    id("org.jetbrains.kotlin.jvm") version "2.2.20" apply false
 }
+
+
 
 val targetAbiFilters = providers.gradleProperty("targetAbi").orNull
     ?.takeUnless { it.equals("all", ignoreCase = true) }
@@ -31,8 +35,9 @@ android {
 }
 
 dependencies {
-    implementation(project(":viewer-common"))
-    implementation(project(":viewer-image"))
+    implementation(project(":viewer-mindmap"))
+    implementation("io.github.gretchycat.libinfiniui:ui-android:0.1.0")
+    implementation("io.github.gretchycat.libinfiniui:ui-image:0.1.0")
     implementation(project(":viewer-text"))
     implementation(project(":viewer-markdown"))
     implementation(project(":viewer-html"))
@@ -61,3 +66,5 @@ android.sourceSets.getByName("main").manifest.srcFile(generatedIntentManifest)
 tasks.named("preBuild").configure { dependsOn(generateIntentManifest) }
 
 apply(from = layout.projectDirectory.file("scripts/runtime-capability-catalog.gradle"))
+
+apply(from = rootProject.file("scripts/third-party-notices.gradle"))
