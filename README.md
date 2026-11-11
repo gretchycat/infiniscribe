@@ -12,6 +12,12 @@ Android SAF remains functional without it. No remote clients, torrent engine,
 mounted filesystems, libinfinistore or libinfinivault are bundled in this app.
 Standard ZIP expansion needed by document formats belongs to document processing.
 
+## Build script
+
+`./build.sh` builds the debug APK and runs the application's JVM unit tests.
+It fetches only the pinned library closure before invoking this checkout's Gradle wrapper.
+Additional Gradle arguments are forwarded unchanged, for example `--max-workers=1` or `-PtargetAbi=arm64-v8a`.
+
 ## Fresh checkout build
 
 Install JDK 17 or 21, Python 3, Android SDK platform 36, build tools 35.0.0,
