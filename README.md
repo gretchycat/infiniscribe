@@ -27,8 +27,7 @@ this checkout's untracked `local.properties`.
 ```sh
 git clone https://github.com/gretchycat/infiniscribe.git
 cd infiniscribe
-python3 scripts/fetch-dependencies.py
-./gradlew assembleDebug testDebugUnitTest
+./build.sh --max-workers=1 --console=plain
 ```
 
 The APK is `build/outputs/apk/debug/InfiniScribe-debug.apk`. Add
@@ -57,3 +56,7 @@ see LICENSE.md. Preserve bundled third-party notices when distributing the APK.
 `./build.sh` honors `ANDROID_HOME`, `ANDROID_SDK_ROOT` or this checkout's `local.properties`. With none configured, it discovers an installed SDK in `~/android-sdk`, `~/Android/Sdk` or `~/Library/Android/sdk`, and reports a clear error if absent. It does not install an SDK or write local configuration. On Termux it passes the installed native `aapt2` explicitly and defaults arm64 packaging to `arm64-v8a`; explicit Gradle arguments can override that default. Direct `./gradlew` invocation still requires SDK/tool configuration.
 
 Run `python3 scripts/test-android-build-env.py` for the build entry point's isolated regression checks.
+
+## Android verification checkpoint
+
+On 2026-11-11, implementation commit `9f0ee73` produced its debug APK and passed 17 unit tests in the user's independent Termux checkout. `./build.sh --max-workers=1 --console=plain` ran with SDK environment variables unset and no local.properties, plus a guard rejecting project/source roots outside that checkout. The 11 build-environment regression checks also passed. APK inspection confirmed no media-player application or advanced Folder storage implementation. Device rendering/grants/lifecycle validation remains separate; Ubuntu testing and other platform ports are deferred.
