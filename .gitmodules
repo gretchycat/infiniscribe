@@ -1,0 +1,24 @@
+[submodule "libraries/libinfinistream"]
+	path = libraries/libinfinistream
+	url = https://github.com/gretchycat/libinfinistream.git
+[submodule "libraries/libinfinistore"]
+	path = libraries/libinfinistore
+	url = https://github.com/gretchycat/libinfinistore.git
+[submodule "libraries/libinfinivault"]
+	path = libraries/libinfinivault
+	url = https://github.com/gretchycat/libinfinivault.git
+[submodule "libraries/libinfinicanvas"]
+	path = libraries/libinfinicanvas
+	url = https://github.com/gretchycat/libinfinicanvas.git
+[submodule "libraries/libinfinisound"]
+	path = libraries/libinfinisound
+	url = https://github.com/gretchycat/libinfinisound.git
+[submodule "libraries/libinfiniscribe"]
+	path = libraries/libinfiniscribe
+	url = https://github.com/gretchycat/libinfiniscribe.git
+[submodule "libraries/libinfiniselect"]
+	path = libraries/libinfiniselect
+	url = https://github.com/gretchycat/libinfiniselect.git
+[submodule "themes"]
+	path = themes
+	url = https://github.com/gretchycat/infini-icon-theme.git

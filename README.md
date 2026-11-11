@@ -1,0 +1,44 @@
+# InfiniScribe
+
+InfiniScribe is a standalone Android document viewer built from the shared
+`libinfiniscribe` libraries and the Scribe-backed viewer modules in this
+workspace. It does not include or depend on the InfiniFolder application.
+
+The host accepts one document per launch through a `content://` or `file://`
+URI. For `content://` sources, the sending app must grant URI read access. The
+viewer is selected at runtime from the installed viewer and Scribe/Canvas
+capability providers. The linked image viewer handles Canvas formats, including
+formats with supported embedded previews. General PostScript interpretation is
+not implemented; PostScript without a supported raster preview opens as source
+text when the content is readable. Multiple-item intents are deliberately not
+treated as document queues; queueing belongs to media playback.
+
+## Build
+
+Fetch the pinned library and theme repositories, then build:
+
+```sh
+./get-dependencies.sh
+./gradlew assembleDebug
+```
+
+The Android SDK must be configured in the environment or in `local.properties`. The Android viewer modules, theme assets, and build scripts are included in this
+repository. Library dependencies and the icon theme are pinned as Git submodules. Clone with
+`--recurse-submodules` or run `./get-dependencies.sh` before building. No
+InfiniFolder checkout is required. The debug APK is written to `build/outputs/apk/debug/`.
+
+Supported viewer formats are discovered from the registered Scribe, Canvas,
+and viewer-component handlers;
+formats and limitations come from those libraries rather than a second list in
+this host app. The build exports that same runtime capability catalog into
+Android `VIEW`, `EDIT`, and single-item `SEND` intent filters, including each
+handler's MIME types and extensions. Registering another format handler under
+an existing Scribe viewer presentation updates those filters on the next build.
+Unknown extensions are eligible in the InfiniFolder-backed picker through the
+opaque MIME candidate. Before opening, InfiniScribe checks a bounded content
+prefix for readable text and rejects binary-looking input, so plain text does not
+need a registered extension while video and image types remain filtered by MIME.
+
+When InfiniScribe opens its file selector, returning from a document reopens
+the selector at the same directory and scroll position. Back closes the
+floating selector; Back from a document returns to the selector.
