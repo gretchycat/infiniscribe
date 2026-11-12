@@ -68,3 +68,5 @@ The pinned Canvas decoder supports Infini SVG palette-cycling metadata directly,
 The shared rendering update at a51efa5 passed all 17 app tests and 11 build-environment checks in the independent checkout using build.sh without SDK variables or local.properties, with the source-root guard and library pin verification enabled. The debug APK was produced successfully. This verifies compilation/package compatibility; visible image animation remains a device acceptance check.
 
 The SVG cycling performance update uses cached palette rasters for flat indexed artwork and frame deadlines for image playback. Animated gradient stops retain their vector fallback; mixed raster edges can have small color approximation differences. No Media application or theme assets are included.
+
+The final shared SVG/first-frame update at 339e95b passed all 17 app tests and 11 environment checks in the independent checkout, with the source-root guard and pin verification enabled.
