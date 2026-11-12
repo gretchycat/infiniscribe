@@ -70,3 +70,7 @@ The shared rendering update at a51efa5 passed all 17 app tests and 11 build-envi
 The SVG cycling performance update uses cached palette rasters for flat indexed artwork and frame deadlines for image playback. Animated gradient stops retain their vector fallback; mixed raster edges can have small color approximation differences. No Media application or theme assets are included.
 
 The final shared SVG/first-frame update at 339e95b passed all 17 app tests and 11 environment checks in the independent checkout, with the source-root guard and pin verification enabled.
+
+## Static SVG / saved-default follow-up
+
+The updated Canvas/UI pins remove experimental SVG color cycling while preserving ordinary still SVG/SVGZ and IFF animation. Explicit type-wide external-app choices now replace same-MIME extension defaults. Implementation 6ac4aea passed the independent build.sh run with 17 tests and 11 environment cases, no SDK environment variables/local.properties, source-root guards and source-pin checks. The APK contains no SVG cycling implementation. No storage/backend or application dependency was added; visible Activity behavior remains separate device acceptance.
