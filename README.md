@@ -64,3 +64,5 @@ On 2026-11-11, implementation commit `9f0ee73` produced its debug APK and passed
 ## Shared image rendering update
 
 The pinned Canvas decoder supports Infini SVG palette-cycling metadata directly, alongside existing indexed IFF animation. Its scheduler is now shared by UI image presentation and skin artwork; Scribe still does not include the Media application or its theme assets.
+
+The shared rendering update at a51efa5 passed all 17 app tests and 11 build-environment checks in the independent checkout using build.sh without SDK variables or local.properties, with the source-root guard and library pin verification enabled. The debug APK was produced successfully. This verifies compilation/package compatibility; visible image animation remains a device acceptance check.
