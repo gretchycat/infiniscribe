@@ -24,6 +24,7 @@ import java.nio.charset.StandardCharsets
 import io.github.gretchycat.infiniscribe.TextChunk
 import io.github.gretchycat.infiniscribe.TextChunkReader
 import io.github.gretchycat.infiniscribe.TextEncodingProbe
+import io.github.gretchycat.infiniscribe.DosTextEncoding
 import io.github.gretchycat.infiniscribe.TextDocuments
 import io.github.gretchycat.infinistream.CancellationToken
 import com.infinifolder.storage.DiagnosticLog
@@ -79,6 +80,7 @@ class TextViewerActivity : ViewerActivity(), DebugDumpObserver {
     private var parentFolderUri: Uri? = null
     private var currentName: String = ""
     private var currentMime: String = "text/plain"
+    private var rawAnsiSourceMode = false
 
     private var currentCharset: Charset = StandardCharsets.UTF_8
     private var charsetOverride: Charset? = null
@@ -118,6 +120,7 @@ class TextViewerActivity : ViewerActivity(), DebugDumpObserver {
         currentMime = intent.getStringExtra("mimeType")
             ?: intent.getStringExtra(EXTRA_MIME)
             ?: "text/plain"
+        rawAnsiSourceMode = intent.getBooleanExtra("rawAnsiSource", false)
         val parentStr = intent.getStringExtra(EXTRA_PARENT_URI) ?: intent.getStringExtra("parentUri")
         parentFolderUri = if (parentStr != null) Uri.parse(parentStr) else MediaSourceAdapter.getParentDirectory(this, currentUri!!)
 
@@ -568,9 +571,9 @@ class TextViewerActivity : ViewerActivity(), DebugDumpObserver {
                 val cancel = CancellationToken { isDestroyed || isFinishing || request != documentGeneration }
                 val inspected = TextEncodingProbe.open(opened,currentName,cancel)
                 val source = inspected.source
-                val textCharset = chosenCharset ?: inspected.detection.charset
+                val textCharset = chosenCharset ?: if (rawAnsiSourceMode) DosTextEncoding.cp437 else inspected.detection.charset
                 if (chosenCharset == null && inspected.detection.dosSurface &&
-                    !intent.getBooleanExtra("forcePlainText",false) && !ViewerLaunch.requestsEdit(intent)) {
+                    !intent.getBooleanExtra("forcePlainText",false) && !rawAnsiSourceMode && !ViewerLaunch.requestsEdit(intent)) {
                     source.close()
                     runOnUiThread {
                         if (request == documentGeneration && !isDestroyed) {
@@ -698,7 +701,9 @@ class TextViewerActivity : ViewerActivity(), DebugDumpObserver {
         var renderLineCount = -1
         val chunk = TextWindowPresentation.combine(pages)
         combineMs = SystemClock.elapsedRealtime() - renderStarted
-        val text = chunk.document.text; val bytes = chunk.document.bytes; val whole = !chunk.document.hasMore
+        val sourceText = chunk.document.text
+        val text = if (rawAnsiSourceMode) AnsiSourceText.display(sourceText) else sourceText
+        val bytes = chunk.document.bytes; val whole = !chunk.document.hasMore
         currentChunk = chunk; documentFullyLoaded = whole
         val revisionStarted = SystemClock.elapsedRealtime()
         loadedRevision = if (whole) com.infinifolder.storage.ContentRevision.of(bytes) else null
@@ -905,7 +910,8 @@ class TextViewerActivity : ViewerActivity(), DebugDumpObserver {
                     } else {
                         documentFullyLoaded = true; loadedRevision = loaded.revision; currentChunk = null
                         textWindow.clear(); edgeLoading = false
-                        originalText = loaded.text; undoStack.clear(); redoStack.clear(); pushUndo(originalText)
+                        originalText = if (rawAnsiSourceMode) AnsiSourceText.display(loaded.text) else loaded.text
+                        undoStack.clear(); redoStack.clear(); pushUndo(originalText)
                         contentEditText.setText(originalText); chunkBar.visibility = View.GONE
                         subtitleView.text = "${currentCharset.name()} · ${originalText.count { it == '\n' } + 1} lines"
                         updateLineNumbers(); toggleEditMode()
@@ -1283,7 +1289,8 @@ class TextViewerActivity : ViewerActivity(), DebugDumpObserver {
         }
 
         val text = contentEditText.text.toString()
-        val data = text.toByteArray(currentCharset)
+        val sourceText = if (rawAnsiSourceMode) text.replace('←', '\u001b') else text
+        val data = if (rawAnsiSourceMode) AnsiSourceText.encode(text, currentCharset) else text.toByteArray(currentCharset)
         Thread {
             val res = MediaSourceAdapter.saveContent(this, targetUri, data, if (targetUri == currentUri) loadedRevision else null)
             runOnUiThread {
@@ -1291,7 +1298,7 @@ class TextViewerActivity : ViewerActivity(), DebugDumpObserver {
                     if (targetUri == currentUri) {
                         loadedRevision = com.infinifolder.storage.ContentRevision.of(data)
                         cachedDocument = io.github.gretchycat.infiniscribe.TextDocument(
-                            text, data, false, io.github.gretchycat.infinistream.StreamMetadata(
+                            sourceText, data, false, io.github.gretchycat.infinistream.StreamMetadata(
                                 content = io.github.gretchycat.infinistream.ContentType(io.github.gretchycat.infinistream.DataKind.TEXT, "text/plain", "text", "unicode"),
                                 attributes = mapOf("storage" to "text-document", "complete" to "true",
                                     "sourceCharset" to currentCharset.name(), "utf16CodeUnits" to text.length.toString()),

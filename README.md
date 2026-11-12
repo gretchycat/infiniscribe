@@ -35,6 +35,8 @@ The APK is `build/outputs/apk/debug/InfiniScribe-debug.apk`. Add
 checksum are pinned in the wrapper. The complete source-dependency closure is
 pinned in `dependencies.lock.json`; the bootstrap fetches only those libraries
 inside `libraries/`. No parent or sibling checkout is consulted.
+The flattened app pins choose one exact revision for each shared library and
+verify that it descends from every library's declared dependency commit.
 
 On Termux, install JDK, Python, clang and aapt2. The build script configures native aapt2 automatically; direct Gradle calls need
 `android.aapt2FromMavenOverride` set to the installed executable.

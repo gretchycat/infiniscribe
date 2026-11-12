@@ -124,11 +124,12 @@ class InfiniScribeActivity : Activity() {
         }
         openDocument(uri, if (incoming.action == Intent.ACTION_EDIT) Intent.ACTION_EDIT else Intent.ACTION_VIEW,
             incoming.flags, incoming.type, incoming.getStringExtra("displayName") ?: incoming.getStringExtra("extra_name"),
-            incoming.getBooleanExtra("forcePlainTextViewer", false))
+            incoming.getBooleanExtra("forcePlainTextViewer", false), incoming.getBooleanExtra("rawAnsiSource", false))
     }
 
     private fun openDocument(uri: Uri, action: String, incomingFlags: Int,
-        suppliedMime: String? = null, suppliedName: String? = null, forcePlainTextViewer: Boolean = false) {
+        suppliedMime: String? = null, suppliedName: String? = null, forcePlainTextViewer: Boolean = false,
+        rawAnsiSource: Boolean = false) {
         if (uri.scheme !in setOf("content", "file")) {
             Toast.makeText(this, "InfiniScribe accepts file and content document references.", Toast.LENGTH_SHORT).show()
             finish()
@@ -143,6 +144,8 @@ class InfiniScribeActivity : Activity() {
                 addFlags(permissionFlags or Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 putExtra("displayName", name)
                 putExtra("mimeType", "text/plain")
+                putExtra("forcePlainText", true)
+                putExtra("rawAnsiSource", rawAnsiSource)
                 clipData = android.content.ClipData.newRawUri(name, uri)
             }
             try {
