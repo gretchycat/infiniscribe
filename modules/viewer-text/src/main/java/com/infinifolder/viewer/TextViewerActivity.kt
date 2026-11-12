@@ -1289,7 +1289,7 @@ class TextViewerActivity : ViewerActivity(), DebugDumpObserver {
         }
 
         val text = contentEditText.text.toString()
-        val sourceText = if (rawAnsiSourceMode) text.replace('←', '\u001b') else text
+        val sourceText = if (rawAnsiSourceMode) AnsiSourceText.source(text) else text
         val data = if (rawAnsiSourceMode) AnsiSourceText.encode(text, currentCharset) else text.toByteArray(currentCharset)
         Thread {
             val res = MediaSourceAdapter.saveContent(this, targetUri, data, if (targetUri == currentUri) loadedRevision else null)

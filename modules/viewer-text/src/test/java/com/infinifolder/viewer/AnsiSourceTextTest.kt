@@ -10,14 +10,20 @@ class AnsiSourceTextTest {
         val raw = byteArrayOf(0x1b, '['.code.toByte(), '3'.code.toByte(), '1'.code.toByte(), 'm'.code.toByte(), 0x82.toByte())
         val decoded = String(raw, DosTextEncoding.cp437)
 
-        assertEquals("←[31mé", AnsiSourceText.display(decoded))
+        assertEquals("←\uFE0E[31mé", AnsiSourceText.display(decoded))
     }
 
     @Test fun savingTheVisibleEscapeRestoresTheEscapeByte() {
-        val bytes = AnsiSourceText.encode("←[31mé", DosTextEncoding.cp437)
+        val bytes = AnsiSourceText.encode("←\uFE0E[31mé", DosTextEncoding.cp437)
 
         assertEquals(0x1b, bytes[0].toInt() and 0xff)
         assertTrue(String(bytes, DosTextEncoding.cp437).startsWith("\u001b[31m"))
-        assertEquals("←[31mé", AnsiSourceText.display(String(bytes, DosTextEncoding.cp437)))
+        assertEquals("←\uFE0E[31mé", AnsiSourceText.display(String(bytes, DosTextEncoding.cp437)))
+    }
+
+    @Test fun literalArrowRemainsOrdinaryTextWhenSaving() {
+        val bytes = AnsiSourceText.encode("←\uFE0E[31m←", Charsets.UTF_8)
+
+        assertEquals("\u001b[31m←", String(bytes, Charsets.UTF_8))
     }
 }
