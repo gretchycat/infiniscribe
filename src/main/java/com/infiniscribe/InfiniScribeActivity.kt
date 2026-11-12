@@ -123,17 +123,37 @@ class InfiniScribeActivity : Activity() {
             return
         }
         openDocument(uri, if (incoming.action == Intent.ACTION_EDIT) Intent.ACTION_EDIT else Intent.ACTION_VIEW,
-            incoming.flags, incoming.type, incoming.getStringExtra("displayName") ?: incoming.getStringExtra("extra_name"))
+            incoming.flags, incoming.type, incoming.getStringExtra("displayName") ?: incoming.getStringExtra("extra_name"),
+            incoming.getBooleanExtra("forcePlainTextViewer", false))
     }
 
     private fun openDocument(uri: Uri, action: String, incomingFlags: Int,
-        suppliedMime: String? = null, suppliedName: String? = null) {
+        suppliedMime: String? = null, suppliedName: String? = null, forcePlainTextViewer: Boolean = false) {
         if (uri.scheme !in setOf("content", "file")) {
             Toast.makeText(this, "InfiniScribe accepts file and content document references.", Toast.LENGTH_SHORT).show()
             finish()
             return
         }
         val name = suppliedName?.takeIf(String::isNotBlank) ?: displayName(uri)
+        if (forcePlainTextViewer) {
+            val permissionFlags = incomingFlags and
+                (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            val launch = Intent(Intent.ACTION_VIEW).setClassName(this, "com.infinifolder.viewer.TextViewerActivity").apply {
+                setDataAndType(uri, "text/plain")
+                addFlags(permissionFlags or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                putExtra("displayName", name)
+                putExtra("mimeType", "text/plain")
+                clipData = android.content.ClipData.newRawUri(name, uri)
+            }
+            try {
+                startActivity(launch)
+                finish()
+            } catch (error: Exception) {
+                Toast.makeText(this, "Could not open $name as text: ${error.message ?: "viewer launch failed"}", Toast.LENGTH_LONG).show()
+                finish()
+            }
+            return
+        }
         val rawMime = suppliedMime?.takeIf(String::isNotBlank)
             ?: runCatching { contentResolver.getType(uri) }.getOrNull()
         val mime = MimeRegistry.effective(name, rawMime)
