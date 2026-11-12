@@ -74,3 +74,7 @@ The final shared SVG/first-frame update at 339e95b passed all 17 app tests and 1
 ## Static SVG / saved-default follow-up
 
 The updated Canvas/UI pins remove experimental SVG color cycling while preserving ordinary still SVG/SVGZ and IFF animation. Explicit type-wide external-app choices now replace same-MIME extension defaults. Implementation 6ac4aea passed the independent build.sh run with 17 tests and 11 environment cases, no SDK environment variables/local.properties, source-root guards and source-pin checks. The APK contains no SVG cycling implementation. No storage/backend or application dependency was added; visible Activity behavior remains separate device acceptance.
+
+## Authoring thumbnails and image-order follow-up
+
+Implementation 746855b passed this checkout's independent build.sh with 17 unit tests and 11 environment cases, source guards and source-pin checks. Canvas/Core preserve ORA/KRA/SVGZ identities and PostScript thumbnail aliases. Shared image UI consumes an optional app-private displayed-order snapshot; external-app launches retain their own navigation context. The fallback list has stable name order. No Folder backend or application dependency was added; visible navigation remains handset acceptance.
