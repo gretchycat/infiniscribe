@@ -99,7 +99,9 @@ class InfiniScribeActivity : Activity() {
         }
         openDocument(uri, Intent.ACTION_VIEW, data.flags,
             data.getStringExtra(FileSelectionContract.EXTRA_RESULT_MIME) ?: data.type,
-            data.getStringExtra(FileSelectionContract.EXTRA_RESULT_NAME) ?: data.getStringExtra("displayName"))
+            data.getStringExtra(FileSelectionContract.EXTRA_RESULT_NAME) ?: data.getStringExtra("displayName"),
+            authoritativeReference = data.getStringExtra(FileSelectionContract.EXTRA_RESULT_AUTHORITATIVE_URI)
+                ?: data.getStringArrayListExtra(FileSelectionContract.EXTRA_RESULT_AUTHORITATIVE_URIS)?.firstOrNull())
     }
 
     private fun handleDocumentIntent(incoming: Intent?) {
@@ -124,29 +126,44 @@ class InfiniScribeActivity : Activity() {
         }
         openDocument(uri, if (incoming.action == Intent.ACTION_EDIT) Intent.ACTION_EDIT else Intent.ACTION_VIEW,
             incoming.flags, incoming.type, incoming.getStringExtra("displayName") ?: incoming.getStringExtra("extra_name"),
-            incoming.getBooleanExtra("forcePlainTextViewer", false), incoming.getBooleanExtra("rawAnsiSource", false))
+            incoming.getBooleanExtra("forcePlainTextViewer", false), incoming.getBooleanExtra("rawAnsiSource", false),
+            incoming.getStringExtra(FileSelectionContract.EXTRA_RESULT_AUTHORITATIVE_URI)
+                ?: incoming.getStringArrayListExtra(FileSelectionContract.EXTRA_RESULT_AUTHORITATIVE_URIS)?.firstOrNull()
+                ?: incoming.getStringArrayListExtra(FileSelectionContract.EXTRA_RESULT_SOURCE_REFERENCES)?.firstOrNull())
     }
 
     private fun openDocument(uri: Uri, action: String, incomingFlags: Int,
         suppliedMime: String? = null, suppliedName: String? = null, forcePlainTextViewer: Boolean = false,
-        rawAnsiSource: Boolean = false) {
-        if (uri.scheme !in setOf("content", "file")) {
-            Toast.makeText(this, "InfiniScribe accepts file and content document references.", Toast.LENGTH_SHORT).show()
+        rawAnsiSource: Boolean = false, authoritativeReference: String? = null) {
+        val requestedName = suppliedName?.takeIf(String::isNotBlank) ?: displayName(uri)
+        val rawMime = suppliedMime?.takeIf(String::isNotBlank)
+            ?: runCatching { contentResolver.getType(uri) }.getOrNull()
+        val requestedMime = MimeRegistry.effective(requestedName, rawMime)
+        val resolved = runCatching {
+            InfiniSelect.resolveSource(this, authoritativeReference ?: uri.toString(), requestedName, requestedMime)
+        }.getOrNull()
+        val accessUri = resolved?.contentUri ?: uri.takeIf { it.scheme in setOf("content", "file") }
+        if (accessUri == null) {
+            Toast.makeText(this, "This storage location is not currently available.", Toast.LENGTH_SHORT).show()
             finish()
             return
         }
-        val name = suppliedName?.takeIf(String::isNotBlank) ?: displayName(uri)
+        val canonicalUri = resolved?.authoritativeUri
+            ?: InfiniSelect.authoritativeCandidate(authoritativeReference, uri)
+        val name = resolved?.displayName?.takeIf(String::isNotBlank) ?: requestedName
+        val mime = MimeRegistry.effective(name, resolved?.mimeType ?: rawMime)
         if (forcePlainTextViewer) {
             val permissionFlags = incomingFlags and
                 (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
             val launch = Intent(Intent.ACTION_VIEW).setClassName(this, "com.infinifolder.viewer.TextViewerActivity").apply {
-                setDataAndType(uri, "text/plain")
+                setDataAndType(accessUri, "text/plain")
                 addFlags(permissionFlags or Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 putExtra("displayName", name)
                 putExtra("mimeType", "text/plain")
                 putExtra("forcePlainText", true)
                 putExtra("rawAnsiSource", rawAnsiSource)
-                clipData = android.content.ClipData.newRawUri(name, uri)
+                canonicalUri?.let { putExtra(FileSelectionContract.EXTRA_RESULT_AUTHORITATIVE_URI, it.toString()) }
+                clipData = android.content.ClipData.newRawUri(name, accessUri)
             }
             try {
                 startActivity(launch)
@@ -157,22 +174,19 @@ class InfiniScribeActivity : Activity() {
             }
             return
         }
-        val rawMime = suppliedMime?.takeIf(String::isNotBlank)
-            ?: runCatching { contentResolver.getType(uri) }.getOrNull()
-        val mime = MimeRegistry.effective(name, rawMime)
         val edit = action == Intent.ACTION_EDIT
         val source = object : io.github.gretchycat.infinistream.SourceResource {
             override val metadata = StreamMetadata(name = name, content = ContentType(mimeType = mime),
                 capabilities = setOf(io.github.gretchycat.infinistream.Capability.READ,
                     io.github.gretchycat.infinistream.Capability.REOPEN),
-                provenance = io.github.gretchycat.infinistream.Provenance(source = uri.toString()))
-            override fun open() = MediaSourceAdapter.openSource(this@InfiniScribeActivity, uri)
+                provenance = io.github.gretchycat.infinistream.Provenance(source = canonicalUri?.toString()))
+            override fun open() = MediaSourceAdapter.openSource(this@InfiniScribeActivity, accessUri)
         }
         // Always probe the source bytes in a worker. Extension/MIME associations are
         // candidates only, so an unfamiliar suffix can still fall through to plain text.
         val resource = CapabilityResource(
             metadata = StreamMetadata(name = name, content = ContentType(mimeType = mime)),
-            uri = uri.toString(), source = source
+            uri = (canonicalUri ?: accessUri).toString(), source = source
         )
         val request = ++openGeneration
         Thread({
@@ -192,16 +206,17 @@ class InfiniScribeActivity : Activity() {
                     (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
                 val launch = Intent(if (edit) Intent.ACTION_EDIT else Intent.ACTION_VIEW).apply {
                     setClassName(this@InfiniScribeActivity, component.activityClassName)
-                    setDataAndType(uri, mime)
+                    setDataAndType(accessUri, mime)
                     addFlags(permissionFlags or Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    putExtra("uri", uri.toString())
-                    putExtra("extra_uri", uri.toString())
+                    putExtra("uri", accessUri.toString())
+                    putExtra("extra_uri", accessUri.toString())
+                    canonicalUri?.let { putExtra(FileSelectionContract.EXTRA_RESULT_AUTHORITATIVE_URI, it.toString()) }
                     putExtra("displayName", name)
                     putExtra("extra_name", name)
                     putExtra("mimeType", mime)
                     putExtra("extra_mime", mime)
                     putExtra("edit", edit)
-                    clipData = android.content.ClipData.newRawUri(name, uri)
+                    clipData = android.content.ClipData.newRawUri(name, accessUri)
                 }
                 try {
                     if (selectorSession) {
