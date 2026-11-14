@@ -135,24 +135,35 @@ class InfiniScribeActivity : Activity() {
     private fun openDocument(uri: Uri, action: String, incomingFlags: Int,
         suppliedMime: String? = null, suppliedName: String? = null, forcePlainTextViewer: Boolean = false,
         rawAnsiSource: Boolean = false, authoritativeReference: String? = null) {
+        val request = ++openGeneration
+        Thread({ prepareDocument(uri, action, incomingFlags, suppliedMime, suppliedName,
+            forcePlainTextViewer, rawAnsiSource, authoritativeReference, request) },
+            "InfiniScribe-source-loader").start()
+    }
+
+    private fun prepareDocument(uri: Uri, action: String, incomingFlags: Int,
+        suppliedMime: String?, suppliedName: String?, forcePlainTextViewer: Boolean,
+        rawAnsiSource: Boolean, authoritativeReference: String?, request: Int) {
         val requestedName = suppliedName?.takeIf(String::isNotBlank) ?: displayName(uri)
         val rawMime = suppliedMime?.takeIf(String::isNotBlank)
             ?: runCatching { contentResolver.getType(uri) }.getOrNull()
         val requestedMime = MimeRegistry.effective(requestedName, rawMime)
-        val resolved = runCatching {
-            InfiniSelect.resolveSelectedSource(this, uri, authoritativeReference ?: uri.toString(),
+        val resolved = try {
+            InfiniSelect.requireSelectedSource(this, uri, authoritativeReference ?: uri.toString(),
                 requestedName, requestedMime)
-        }.getOrNull()
-        val accessUri = resolved?.contentUri ?: uri.takeIf { it.scheme in setOf("content", "file") }
-        if (accessUri == null) {
-            Toast.makeText(this, "This storage location is not currently available.", Toast.LENGTH_SHORT).show()
-            finish()
+        } catch (error: Exception) {
+            com.infinifolder.storage.DiagnosticLog.record("scribe.source.resolve.failed", "file=$requestedName", error)
+            runOnUiThread {
+                if (request != openGeneration || isFinishing || isDestroyed) return@runOnUiThread
+                Toast.makeText(this, error.message ?: "This storage location is not currently available.", Toast.LENGTH_LONG).show()
+                if (selectorSession) chooseDocument(selectorDirectory, selectorScrollY) else finish()
+            }
             return
         }
-        val canonicalUri = resolved?.authoritativeUri
-            ?: InfiniSelect.authoritativeCandidate(authoritativeReference, uri)
-        val name = resolved?.displayName?.takeIf(String::isNotBlank) ?: requestedName
-        val mime = MimeRegistry.effective(name, resolved?.mimeType ?: rawMime)
+        val accessUri = resolved.contentUri
+        val canonicalUri = resolved.authoritativeUri
+        val name = resolved.displayName?.takeIf(String::isNotBlank) ?: requestedName
+        val mime = MimeRegistry.effective(name, resolved.mimeType ?: rawMime)
         if (forcePlainTextViewer) {
             val permissionFlags = incomingFlags and
                 (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
@@ -163,15 +174,18 @@ class InfiniScribeActivity : Activity() {
                 putExtra("mimeType", "text/plain")
                 putExtra("forcePlainText", true)
                 putExtra("rawAnsiSource", rawAnsiSource)
-                canonicalUri?.let { putExtra(FileSelectionContract.EXTRA_RESULT_AUTHORITATIVE_URI, it.toString()) }
+                putExtra(FileSelectionContract.EXTRA_RESULT_AUTHORITATIVE_URI, canonicalUri.toString())
                 clipData = android.content.ClipData.newRawUri(name, accessUri)
             }
-            try {
-                startActivity(launch)
-                finish()
-            } catch (error: Exception) {
-                Toast.makeText(this, "Could not open $name as text: ${error.message ?: "viewer launch failed"}", Toast.LENGTH_LONG).show()
-                finish()
+            runOnUiThread {
+                if (request != openGeneration || isFinishing || isDestroyed) return@runOnUiThread
+                try {
+                    startActivity(launch)
+                    finish()
+                } catch (error: Exception) {
+                    Toast.makeText(this, "Could not open $name as text: ${error.message ?: "viewer launch failed"}", Toast.LENGTH_LONG).show()
+                    finish()
+                }
             }
             return
         }
@@ -180,60 +194,57 @@ class InfiniScribeActivity : Activity() {
             override val metadata = StreamMetadata(name = name, content = ContentType(mimeType = mime),
                 capabilities = setOf(io.github.gretchycat.infinistream.Capability.READ,
                     io.github.gretchycat.infinistream.Capability.REOPEN),
-                provenance = io.github.gretchycat.infinistream.Provenance(source = canonicalUri?.toString()))
+                provenance = io.github.gretchycat.infinistream.Provenance(source = canonicalUri.toString()))
             override fun open() = MediaSourceAdapter.openSource(this@InfiniScribeActivity, accessUri)
         }
         // Always probe the source bytes in a worker. Extension/MIME associations are
         // candidates only, so an unfamiliar suffix can still fall through to plain text.
         val resource = CapabilityResource(
             metadata = StreamMetadata(name = name, content = ContentType(mimeType = mime)),
-            uri = (canonicalUri ?: accessUri).toString(), source = source
+            uri = canonicalUri.toString(), source = source
         )
-        val request = ++openGeneration
-        Thread({
-            val result = runCatching { ViewerComponents.resolve(resource, edit = edit) }
-            runOnUiThread {
-                if (request != openGeneration || isFinishing || isDestroyed) return@runOnUiThread
-                val component = result.getOrNull()
-                if (component == null) {
-                    val failure = result.exceptionOrNull()
-                    val detail = failure?.message?.takeIf(String::isNotBlank)
-                    Toast.makeText(this, detail?.let { "Could not inspect $name: $it" }
-                        ?: "No InfiniScribe viewer supports $name ($mime).", Toast.LENGTH_LONG).show()
-                    if (selectorSession) chooseDocument(selectorDirectory, selectorScrollY) else finish()
-                    return@runOnUiThread
-                }
-                val permissionFlags = incomingFlags and
-                    (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-                val launch = Intent(if (edit) Intent.ACTION_EDIT else Intent.ACTION_VIEW).apply {
-                    setClassName(this@InfiniScribeActivity, component.activityClassName)
-                    setDataAndType(accessUri, mime)
-                    addFlags(permissionFlags or Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    putExtra("uri", accessUri.toString())
-                    putExtra("extra_uri", accessUri.toString())
-                    canonicalUri?.let { putExtra(FileSelectionContract.EXTRA_RESULT_AUTHORITATIVE_URI, it.toString()) }
-                    putExtra("displayName", name)
-                    putExtra("extra_name", name)
-                    putExtra("mimeType", mime)
-                    putExtra("extra_mime", mime)
-                    putExtra("edit", edit)
-                    clipData = android.content.ClipData.newRawUri(name, accessUri)
-                }
-                try {
-                    if (selectorSession) {
-                        // Retain this host beneath the document viewer. Its result callback
-                        // restores the selector's last location after Back/Escape.
-                        startActivityForResult(launch, REQUEST_OPEN_VIEWER)
-                    } else {
-                        startActivity(launch)
-                        finish()
-                    }
-                } catch (error: Exception) {
-                    Toast.makeText(this, "Could not open $name: ${error.message ?: "viewer launch failed"}", Toast.LENGTH_LONG).show()
-                    if (selectorSession) chooseDocument(selectorDirectory, selectorScrollY) else finish()
-                }
+        val result = runCatching { ViewerComponents.resolve(resource, edit = edit) }
+        runOnUiThread {
+            if (request != openGeneration || isFinishing || isDestroyed) return@runOnUiThread
+            val component = result.getOrNull()
+            if (component == null) {
+                val failure = result.exceptionOrNull()
+                val detail = failure?.message?.takeIf(String::isNotBlank)
+                Toast.makeText(this, detail?.let { "Could not inspect $name: $it" }
+                    ?: "No InfiniScribe viewer supports $name ($mime).", Toast.LENGTH_LONG).show()
+                if (selectorSession) chooseDocument(selectorDirectory, selectorScrollY) else finish()
+                return@runOnUiThread
             }
-        }, "InfiniScribe-format-probe").start()
+            val permissionFlags = incomingFlags and
+                (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            val launch = Intent(if (edit) Intent.ACTION_EDIT else Intent.ACTION_VIEW).apply {
+                setClassName(this@InfiniScribeActivity, component.activityClassName)
+                setDataAndType(accessUri, mime)
+                addFlags(permissionFlags or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                putExtra("uri", accessUri.toString())
+                putExtra("extra_uri", accessUri.toString())
+                putExtra(FileSelectionContract.EXTRA_RESULT_AUTHORITATIVE_URI, canonicalUri.toString())
+                putExtra("displayName", name)
+                putExtra("extra_name", name)
+                putExtra("mimeType", mime)
+                putExtra("extra_mime", mime)
+                putExtra("edit", edit)
+                clipData = android.content.ClipData.newRawUri(name, accessUri)
+            }
+            try {
+                if (selectorSession) {
+                    // Retain this host beneath the document viewer. Its result callback
+                    // restores the selector's last location after Back/Escape.
+                    startActivityForResult(launch, REQUEST_OPEN_VIEWER)
+                } else {
+                    startActivity(launch)
+                    finish()
+                }
+            } catch (error: Exception) {
+                Toast.makeText(this, "Could not open $name: ${error.message ?: "viewer launch failed"}", Toast.LENGTH_LONG).show()
+                if (selectorSession) chooseDocument(selectorDirectory, selectorScrollY) else finish()
+            }
+        }
     }
 
     private fun displayName(uri: Uri): String {

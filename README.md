@@ -12,6 +12,17 @@ Android SAF remains functional without it. No remote clients, torrent engine,
 mounted filesystems, libinfinistore or libinfinivault are bundled in this app.
 Standard ZIP expansion needed by document formats belongs to document processing.
 
+Version 0.1.1 pins the corrected libinfiniselect result handoff: the internal
+picker keeps grants already held by this application and excludes ungranted
+canonical references from ClipData. Source resolution and format probing run
+on a worker; failed access reports the provider error and returns to the picker.
+Remote sources require the current InfiniFolder storage service as well as the
+updated client. Build/unit checks are separate from device acceptance.
+
+The 0.1.1 Android build passed `./build.sh --console=plain` on Termux with all
+20 application unit tests passing. The packaged manifest reports version code 2.
+Device reproduction of the picker/crash path remains unverified in this checkout.
+
 ## Build script
 
 `./build.sh` builds the debug APK and runs the application's JVM unit tests.
@@ -30,7 +41,8 @@ cd infiniscribe
 ./build.sh --max-workers=1 --console=plain
 ```
 
-The APK is `build/outputs/apk/debug/InfiniScribe-debug.apk`. Add
+The APK is `build/outputs/apk/debug/InfiniScribe-debug.apk` and `build.sh` copies it
+to `InfiniScribe-debug.apk` at this repository's root. Add
 `-PtargetAbi=arm64-v8a` to restrict application packaging. Gradle 9.7.1 and its
 checksum are pinned in the wrapper. The complete source-dependency closure is
 pinned in `dependencies.lock.json`; the bootstrap fetches only those libraries
