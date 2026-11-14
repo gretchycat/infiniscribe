@@ -140,7 +140,8 @@ class InfiniScribeActivity : Activity() {
             ?: runCatching { contentResolver.getType(uri) }.getOrNull()
         val requestedMime = MimeRegistry.effective(requestedName, rawMime)
         val resolved = runCatching {
-            InfiniSelect.resolveSource(this, authoritativeReference ?: uri.toString(), requestedName, requestedMime)
+            InfiniSelect.resolveSelectedSource(this, uri, authoritativeReference ?: uri.toString(),
+                requestedName, requestedMime)
         }.getOrNull()
         val accessUri = resolved?.contentUri ?: uri.takeIf { it.scheme in setOf("content", "file") }
         if (accessUri == null) {
